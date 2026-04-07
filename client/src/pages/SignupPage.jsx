@@ -4,6 +4,7 @@ import { ArrowRight, Eye, EyeOff } from 'lucide-react'
 import LogoMark from '../components/ui/Logo'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
+import { useAuth } from '../context/AuthContext'
 
 /* Google "G" SVG icon */
 function GoogleIcon() {
@@ -17,8 +18,9 @@ function GoogleIcon() {
   )
 }
 
-export default function SignupPage({ onLogin }) {
+export default function SignupPage() {
   const navigate = useNavigate()
+  const { register } = useAuth()
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [errors, setErrors] = useState({})
   const [showPassword, setShowPassword] = useState(false)
@@ -34,16 +36,18 @@ export default function SignupPage({ onLogin }) {
     return errs
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      if (onLogin) onLogin({ name: form.name, email: form.email })
-      navigate('/dashboard')
-    }, 1000)
+    const result = await register(form.email, form.password)
+    setLoading(false)
+    if (result.success) {
+      navigate('/login')
+    } else {
+      setErrors({ email: result.error || 'Registration failed' })
+    }
   }
 
   const handleChange = (field) => (e) => {
@@ -52,7 +56,6 @@ export default function SignupPage({ onLogin }) {
   }
 
   const handleGoogleAuth = () => {
-    if (onLogin) onLogin({ name: 'Google User', email: 'user@gmail.com' })
     navigate('/dashboard')
   }
 
