@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 
-export const DEFAULT_WS_URL = 'ws://127.0.0.1:8000/api/interview/ws'
+function deriveWsUrl() {
+  const base = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
+  // Convert http(s) to ws(s)
+  return base.replace(/^http/, 'ws') + '/interview/ws'
+}
+
+export const DEFAULT_WS_URL = deriveWsUrl()
 
 export const BLOOM_LEVELS = [
   'L1 - Remember',
@@ -14,16 +20,75 @@ export const BLOOM_LEVELS = [
 ]
 
 export const SUBJECTS = [
-  'Data Structures and Algorithms (DSA)',
-  'Operating Systems',
-  'Database Management Systems',
-  'Computer Networks',
-  'Object Oriented Programming',
-  'Web Development',
-  'Machine Learning',
+  'Data Structures & Algorithms (DSA)',
+  'Database Management Systems (DBMS)',
+  'Operating Systems (OS)',
+  'Computer Networks (CN)',
+  'Computer Architecture',
+  'Compiler Design',
+  'Theory of Computation',
+  'Parallel Computing',
+  'Distributed Systems',
+  'Programming Language Fundamentals',
+  'Object-Oriented Programming (OOP)',
   'System Design',
   'Software Engineering',
-  'Artificial Intelligence',
+  'Web Development',
+  'Mobile Application Development',
+  'DevOps',
+  'Cloud Computing',
+  'Artificial Intelligence (AI)',
+  'Machine Learning (ML)',
+  'Data Science',
+  'Cybersecurity',
+  'Blockchain Technology',
+  'Human-Computer Interaction (HCI)',
+  'Embedded Systems',
+  'Augmented & Virtual Reality (AR/VR)',
+  'Circuit Theory',
+  'Electrical Machines',
+  'Power Systems',
+  'Control Systems',
+  'Power Electronics',
+  'Analog Electronics',
+  'Digital Electronics',
+  'Signals & Systems',
+  'Measurement & Instrumentation',
+  'Sensors & Transducers',
+  'Process Control',
+  'Industrial Automation',
+  'Communication Systems',
+  'Electromagnetics',
+  'Microprocessors & Microcontrollers',
+  'VLSI Design',
+  'Digital Signal Processing',
+  'Engineering Mechanics',
+  'Thermodynamics',
+  'Fluid Mechanics',
+  'Heat Transfer',
+  'Theory of Machines',
+  'Machine Design',
+  'Manufacturing Engineering',
+  'Industrial Engineering',
+  'Structural Analysis',
+  'Geotechnical Engineering',
+  'Environmental Engineering',
+  'Transportation Engineering',
+  'Surveying',
+  'Construction Engineering',
+  'Human Anatomy & Physiology',
+  'Biomedical Instrumentation',
+  'Medical Imaging',
+  'Biomaterials',
+  'Biomechanics',
+  'Bio-signal Processing',
+  'Rehabilitation Engineering',
+  'Manufacturing Processes',
+  'Operations Research',
+  'Production Planning & Control',
+  'Quality Control',
+  'Supply Chain Management',
+  'Other / Custom Subject'
 ]
 
 export const STAGE_COPY = {
@@ -141,7 +206,12 @@ export default function useInterview() {
     setBusyState('connecting')
     setHeartbeat('checking')
 
-    const ws = new WebSocket(socketUrl.trim())
+    // Attach JWT token as query param for backend WebSocket auth
+    const token = localStorage.getItem('interview_jwt')
+    const wsUrlWithAuth = token
+      ? `${socketUrl.trim()}?token=${encodeURIComponent(token)}`
+      : socketUrl.trim()
+    const ws = new WebSocket(wsUrlWithAuth)
     wsRef.current = ws
 
     ws.onopen = () => {
@@ -160,7 +230,10 @@ export default function useInterview() {
 
       if (data.type === 'ready') {
         setBusyState('generating')
-        ws.send(JSON.stringify({ type: 'start', payload: { ...form, n: Number(form.n), enable_human_review: false } }))
+        const startPayload = { type: 'start', payload: { ...form, n: Number(form.n), enable_human_review: false } }
+        // Also include token in payload as fallback
+        if (token) startPayload.token = token
+        ws.send(JSON.stringify(startPayload))
         return
       }
       if (data.type === 'started') {

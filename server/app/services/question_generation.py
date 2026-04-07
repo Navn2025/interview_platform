@@ -39,8 +39,8 @@ def generate_questions(state: State):
             true_or_false=str(real_world_required).lower()
         )),
         HumanMessage(content=QUESTION_GENERATION_USER_PROMPT.format(
-            subject=state["subject"],
-            subject_description=state["subject_description"],
+            subject=state.get("subject", ""),
+            subject_description=state.get("subject_description") or "",
             difficulty=difficulty,
             bloom_level=bloom_level,
             true_or_false=real_world_required,

@@ -5,7 +5,6 @@ import {
   Lightbulb, CheckCircle, Circle, Loader2, Volume2,
   ChevronRight, AlertCircle,
 } from 'lucide-react'
-import useDemoInterview from '../hooks/useDemoInterview'
 import useInterview, { STAGE_COPY } from '../hooks/useInterview'
 import { LogoMark, LogoFull } from '../components/ui/Logo'
 
@@ -201,23 +200,26 @@ export default function InterviewPage() {
   const config = location.state?.config || {}
   const [micActive, setMicActive] = useState(false)
 
-  // Use demo hook for interview session since user requested demo
+  // Use real WebSocket interview hook
   const {
-    start, currentQuestion, questionIndex, totalQuestions,
-    answer, setAnswer, askedQuestions,
+    startInterview, currentQuestion, questionIndex, totalQuestions,
+    answer, setAnswer, submittedAnswers,
     busyState, isBusyFlow, canAnswer, activeMessage,
     progressPercent, heartbeat, connection, result, error,
     submitAnswer, skipQuestion, finishNow, disconnect,
-  } = useDemoInterview()
+    form, handleFormField,
+  } = useInterview()
 
-  const realHook = useInterview()
-  const form = realHook.form
+  // Alias to match the UI's start() call
+  const start = startInterview
+  const askedQuestions = submittedAnswers || []
 
   useEffect(() => {
-    if (config.subject) realHook.handleFormField('subject', config.subject)
-    if (config.difficulty) realHook.handleFormField('difficulty', config.difficulty.toLowerCase())
-    if (config.bloomLevel) realHook.handleFormField('bloom_level', config.bloomLevel)
-    if (config.numQuestions) realHook.handleFormField('n', config.numQuestions)
+    if (config.subject) handleFormField('subject', config.subject)
+    if (config.difficulty) handleFormField('difficulty', config.difficulty.toLowerCase())
+    if (config.bloomLevel) handleFormField('bloom_level', config.bloomLevel)
+    if (config.numQuestions) handleFormField('n', config.numQuestions)
+    if (config.subject_description !== undefined) handleFormField('subject_description', config.subject_description)
   }, []) // eslint-disable-line
 
   const wordCount = answer.trim() ? answer.trim().split(/\s+/).length : 0
