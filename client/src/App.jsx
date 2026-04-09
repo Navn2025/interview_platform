@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
-import './index.css';
+import ErrorBoundary from './components/ErrorBoundary';
+import { Toaster, toast } from 'react-hot-toast';
 
-import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import OAuthCallback from './pages/OAuthCallback';
 import DashboardPage from './pages/DashboardPage';
 import ConfigurePage from './pages/ConfigurePage';
 import InterviewPage from './pages/InterviewPage';
@@ -39,7 +40,8 @@ function App() {
   useEffect(() => {
     const handleUnauthorized = () => {
       logout();
-      navigate('/login');
+      toast.error('Session expired. Please log in again.');
+      navigate('/');
     };
 
     window.addEventListener('auth:unauthorized', handleUnauthorized);
@@ -51,10 +53,12 @@ function App() {
   const sharedProps = { user, darkMode, onToggleDark: toggleDark, onLogout: logout };
 
   return (
+    <ErrorBoundary>
+    <Toaster position="top-center" />
     <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/oauth/callback" element={<OAuthCallback />} />
       <Route
         path="/dashboard"
         element={
@@ -82,6 +86,7 @@ function App() {
       {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ErrorBoundary>
   );
 }
 

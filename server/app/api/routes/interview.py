@@ -6,9 +6,14 @@ Provides:
 - Legacy POST /run endpoint (unchanged)
 """
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from dataclasses import dataclass, field
 import uuid
 from typing import Any, Optional, List
+from datetime import datetime, timezone, timedelta
 
 from anyio import to_thread
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
@@ -156,6 +161,7 @@ async def interview_ws(ws: WebSocket):
     session_id: Optional[str] = None
     db_interview_id: Optional[int] = None
     current_user_id: Optional[int] = None
+    cached_ends_at: Optional[datetime] = None
 
     # Allow token from query param (e.g. ?token=...)
     token = ws.query_params.get("token")
@@ -207,12 +213,16 @@ async def interview_ws(ws: WebSocket):
                 db_questions = repo.get_questions_by_interview(db, db_interview_id)
                 answers = repo.get_answers_by_interview(db, db_interview_id)
                 
+                if interview_record.start_time:
+                    cached_ends_at = interview_record.start_time + timedelta(minutes=interview_record.duration_minutes)
+
                 await ws.send_json(
                     {
                         "type": "started",
                         "session_id": session_id,
                         "interview_id": db_interview_id,
                         "total_questions": len(db_questions),
+                        "ends_at": cached_ends_at.isoformat() if cached_ends_at else None
                     }
                 )
                 
@@ -224,7 +234,7 @@ async def interview_ws(ws: WebSocket):
                         evaluation_report = await interview_service.complete_interview(db, db_interview_id)
                         await ws.send_json({"type": "result", "session_id": session_id, "evaluation": evaluation_report})
                     except Exception as e:
-                        pass
+                        logger.exception("Failed to evaluate expired interview %s: %s", db_interview_id, e)
                     await ws.close()
                     return
 
@@ -244,7 +254,7 @@ async def interview_ws(ws: WebSocket):
                         evaluation_report = await interview_service.complete_interview(db, db_interview_id)
                         await ws.send_json({"type": "result", "session_id": session_id, "evaluation": evaluation_report})
                     except Exception as e:
-                        pass
+                        logger.exception("Failed to evaluate resumed interview %s: %s", db_interview_id, e)
         else:
             if isinstance(initial, dict) and initial.get("type") == "start":
                 payload_data = initial.get("payload", {})
@@ -273,6 +283,8 @@ async def interview_ws(ws: WebSocket):
                         user_id=current_user_id,
                     )
                     db_interview_id = interview_record.id
+                    if interview_record.start_time:
+                        cached_ends_at = interview_record.start_time + timedelta(minutes=interview_record.duration_minutes)
                     db_questions = repo.save_questions_bulk(db=db, interview_id=db_interview_id, questions_data=questions)
                 except Exception as e:
                     await ws.send_json({"type": "error", "message": f"Database initialization failed: {e}"})
@@ -285,6 +297,7 @@ async def interview_ws(ws: WebSocket):
                     "session_id": session_id,
                     "interview_id": db_interview_id,
                     "total_questions": len(questions),
+                    "ends_at": cached_ends_at.isoformat() if cached_ends_at else None
                 }
             )
 
@@ -329,27 +342,26 @@ async def interview_ws(ws: WebSocket):
                 )
                 continue
 
-            # Fetch record and check expiration immediately inside short-lived session
+            # Check cached expiration immediately inside RAM before touching DB
             if not db_interview_id:
                 continue
 
-            with SessionLocal() as db:
-                interview_record = repo.get_interview_by_id(db, db_interview_id)
-                if interview_record and interview_service.is_interview_expired(interview_record):
-                    # Signal client
-                    await ws.send_json({
-                        "type": "interview_ended", 
-                        "reason": "time_up"
-                    })
-                    if interview_record.status != "expired":
-                        db_questions = repo.get_questions_by_interview(db, db_interview_id)
+            if cached_ends_at and datetime.now(timezone.utc) > cached_ends_at:
+                # Signal client
+                await ws.send_json({
+                    "type": "interview_ended", 
+                    "reason": "time_up"
+                })
+                with SessionLocal() as db:
+                    temp_record = repo.get_interview_by_id(db, db_interview_id)
+                    if temp_record and temp_record.status != "expired":
                         try:
                             # Direct evaluation resolution
                             await interview_service.complete_interview(db, db_interview_id)
                             repo.update_interview_status(db, db_interview_id, "expired")
-                        except Exception:
-                            pass
-                    break
+                        except Exception as e:
+                            logger.exception("Failed to finalize expired interview %s: %s", db_interview_id, e)
+                break
 
             answer_text = str(message.get("answer", "")).strip()
             question_id = message.get("question_id")

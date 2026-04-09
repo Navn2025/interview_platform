@@ -1,10 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff } from 'lucide-react'
 import LogoMark from '../components/ui/Logo'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import { useAuth } from '../context/AuthContext'
+import { BASE_URL } from '../services/api'
 
 /* Google "G" SVG icon */
 function GoogleIcon() {
@@ -20,7 +21,13 @@ function GoogleIcon() {
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { login, isAuthenticated } = useAuth()
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
   const [form, setForm] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({})
   const [showPassword, setShowPassword] = useState(false)
@@ -31,7 +38,7 @@ export default function LoginPage() {
     if (!form.email) errs.email = 'Email is required'
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Enter a valid email'
     if (!form.password) errs.password = 'Password is required'
-    else if (form.password.length < 6) errs.password = 'Password must be at least 6 characters'
+    else if (form.password.length < 8) errs.password = 'Password must be at least 8 characters'
     return errs
   }
 
@@ -50,8 +57,7 @@ export default function LoginPage() {
   }
 
   const handleGoogleAuth = () => {
-    // Placeholder — wire up to backend OAuth flow
-    navigate('/dashboard')
+    window.location.href = `${BASE_URL}/auth/google`
   }
 
   return (
@@ -80,8 +86,8 @@ export default function LoginPage() {
             onClick={handleGoogleAuth}
             type="button"
             className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-gray-200
-                       bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-all duration-150
-                       shadow-sm hover:shadow-md mb-5"
+                       bg-white text-gray-700 hover:bg-gray-50 transition-all duration-150 font-medium text-sm
+                       shadow-sm mb-5"
           >
             <GoogleIcon />
             Continue with Google

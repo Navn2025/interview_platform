@@ -19,6 +19,9 @@ class Settings(BaseModel):
     secret_key: Optional[str] = Field(default_factory=lambda: os.getenv("SECRET_KEY"))
     algorithm: str = Field(default_factory=lambda: os.getenv("ALGORITHM", "HS256"))
     access_token_expire_minutes: int = Field(default_factory=lambda: int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60")))
+    google_client_id: Optional[str] = Field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_ID"))
+    google_client_secret: Optional[str] = Field(default_factory=lambda: os.getenv("GOOGLE_CLIENT_SECRET"))
+    frontend_url: str = Field(default_factory=lambda: os.getenv("FRONTEND_URL", "http://localhost:5173"))
 
 
 @lru_cache(maxsize=1)

@@ -89,7 +89,7 @@ From the `server` directory:
 
 ```bash
 # Create venv
-python -m venv .venv
+python3 -m venv .venv
 
 # Activate (Windows PowerShell)
 .\.venv\Scripts\Activate.ps1

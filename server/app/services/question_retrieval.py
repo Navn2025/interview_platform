@@ -22,8 +22,6 @@ def retrieve_questions(state: State):
             "question": doc.metadata.get("question_text", ""),
             "answer": doc.metadata.get("answer_text", "")
         })
-    print(formatted_results)
-
     return {
         "retrieved_questions": formatted_results
     }

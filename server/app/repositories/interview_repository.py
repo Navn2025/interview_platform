@@ -45,6 +45,7 @@ def get_interview_by_id(db: Session, interview_id: int) -> Optional[Interview]:
 def get_interviews_by_user(db: Session, user_id: int) -> List[Interview]:
     return (
         db.query(Interview)
+        .options(joinedload(Interview.questions), joinedload(Interview.answers))
         .filter(Interview.user_id == user_id)
         .order_by(Interview.created_at.desc())
         .all()

@@ -129,6 +129,7 @@ export default function useInterview() {
   const [busyState, setBusyState] = useState('idle')
   const [heartbeat, setHeartbeat] = useState('offline')
   const [lastServerTime, setLastServerTime] = useState('')
+  const [endsAt, setEndsAt] = useState(null)
 
   const wsRef = useRef(null)
 
@@ -178,6 +179,7 @@ export default function useInterview() {
     setBusyState('idle')
     setHeartbeat('offline')
     setLastServerTime('')
+    setEndsAt(null)
   }, [])
 
   useEffect(() => {
@@ -242,6 +244,9 @@ export default function useInterview() {
         setHeartbeat('live')
         setSessionId(data.session_id || '')
         setTotalQuestions(Number(data.total_questions || form.n))
+        if (data.ends_at) {
+          setEndsAt(new Date(data.ends_at))
+        }
         logEvent(`Interview started. Questions: ${data.total_questions || form.n}`)
         return
       }
@@ -340,6 +345,7 @@ export default function useInterview() {
     busyState,
     heartbeat,
     lastServerTime,
+    endsAt,
     canStart,
     progressPercent,
     isBusyFlow,

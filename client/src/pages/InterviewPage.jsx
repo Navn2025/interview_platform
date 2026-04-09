@@ -9,14 +9,16 @@ import useInterview, { STAGE_COPY } from '../hooks/useInterview'
 import { LogoMark, LogoFull } from '../components/ui/Logo'
 
 function TypewriterText({ text, speed = 20 }) {
-  const [displayed, setDisplayed] = useState("")
+  const pRef = useRef(null)
 
   useEffect(() => {
+    if (!pRef.current || !text) return
+    const el = pRef.current
     let i = 0
-    setDisplayed("") // reset on new question
+    el.textContent = ""
 
     const interval = setInterval(() => {
-      setDisplayed(text.slice(0, i + 1))
+      el.textContent = text.slice(0, i + 1)
       i++
       if (i >= text.length) clearInterval(interval)
     }, speed)
@@ -26,8 +28,8 @@ function TypewriterText({ text, speed = 20 }) {
 
   return (
     <p className="text-gray-900 dark:text-white text-sm leading-relaxed font-medium">
-      {displayed}
-      <span className="ml-1 animate-pulse">|</span>
+      <span ref={pRef}></span>
+      <span className="ml-1 animate-pulse" aria-hidden="true">|</span>
     </p>
   )
 }
@@ -46,26 +48,44 @@ function AIStateBadge({ busyState }) {
   const s = states[busyState]
   if (!s) return null
   return (
-    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${s.color}`}>
+    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${s.color}`} role="status" aria-label={`AI Status: ${s.label}`}>
       {s.label}
     </span>
   )
 }
 
 /* ─── Timer ─── */
-function Timer({ running }) {
-  const [seconds, setSeconds] = useState(0)
-  const ref = useRef(null)
+function Timer({ running, endsAt }) {
+  const [displayTime, setDisplayTime] = useState({ m: 0, s: 0 })
+
   useEffect(() => {
-    if (running) ref.current = setInterval(() => setSeconds((s) => s + 1), 1000)
-    else clearInterval(ref.current)
-    return () => clearInterval(ref.current)
-  }, [running])
-  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
-  const ss = String(seconds % 60).padStart(2, '0')
+    if (!running) return
+
+    const interval = setInterval(() => {
+      if (endsAt) {
+        const remaining = Math.max(0, Math.floor((endsAt.getTime() - Date.now()) / 1000))
+        setDisplayTime({ m: Math.floor(remaining / 60), s: remaining % 60 })
+      } else {
+        // Fallback count up if no endsAt
+        setDisplayTime((prev) => {
+          const total = prev.m * 60 + prev.s + 1
+          return { m: Math.floor(total / 60), s: total % 60 }
+        })
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [running, endsAt])
+
+  const mm = String(displayTime.m).padStart(2, '0')
+  const ss = String(displayTime.s).padStart(2, '0')
+
+  const timeColor = endsAt && displayTime.m < 2 ? 'text-red-500' : 'text-gray-700 dark:text-slate-300'
+  const iconColor = endsAt && displayTime.m < 2 ? 'text-red-500 animate-pulse' : 'text-blue-500'
+
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-slate-300 text-sm font-mono border border-gray-200 dark:border-slate-700">
-      <Clock className="w-3.5 h-3.5 text-blue-500" />
+    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-slate-800 ${timeColor} text-sm font-mono border border-gray-200 dark:border-slate-700`} aria-label="Interview Timer" role="timer" aria-live="polite">
+      <Clock className={`w-3.5 h-3.5 ${iconColor}`} aria-hidden="true" />
       {mm}:{ss}
     </div>
   )
@@ -205,7 +225,7 @@ export default function InterviewPage() {
     startInterview, currentQuestion, questionIndex, totalQuestions,
     answer, setAnswer, submittedAnswers,
     busyState, isBusyFlow, canAnswer, activeMessage,
-    progressPercent, heartbeat, connection, result, error,
+    progressPercent, heartbeat, connection, result, error, endsAt,
     submitAnswer, skipQuestion, finishNow, disconnect,
     form, handleFormField,
   } = useInterview()
@@ -256,14 +276,15 @@ export default function InterviewPage() {
 
         <div className="flex items-center gap-2">
           <AIStateBadge busyState={busyState} />
-          <Timer running={connection === 'active'} />
+          <Timer running={connection === 'active'} endsAt={endsAt} />
           <button
             id="exit-interview"
             onClick={handleExit}
+            aria-label="Exit Interview"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-gray-500 dark:text-slate-400
                        hover:text-gray-800 hover:bg-gray-100 dark:hover:bg-slate-800 dark:hover:text-white transition-colors border border-gray-200 dark:border-slate-700 ml-1"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
             <span className="hidden sm:inline">Exit</span>
           </button>
         </div>
@@ -301,10 +322,11 @@ export default function InterviewPage() {
               <button
                 id="start-interview-session"
                 onClick={start}
+                aria-label="Start Interview"
                 className="flex items-center gap-2 px-7 py-3.5 rounded-2xl bg-linear-to-r from-blue-600 to-violet-600
                            hover:from-blue-500 hover:to-violet-500 text-white font-semibold transition-all shadow-lg"
               >
-                <Mic className="w-5 h-5" />
+                <Mic className="w-5 h-5" aria-hidden="true" />
                 Start Interview
               </button>
             </div>
@@ -378,6 +400,7 @@ export default function InterviewPage() {
                   onChange={(e) => setAnswer(e.target.value)}
                   placeholder="Write your answer with reasoning and trade-offs..."
                   disabled={!canAnswer}
+                  aria-label="Your Answer Input field"
                   className="flex-1 w-full bg-gray-50 dark:bg-slate-950 border border-gray-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white
                              placeholder:text-gray-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
                              disabled:opacity-50 disabled:cursor-not-allowed resize-none transition-colors"

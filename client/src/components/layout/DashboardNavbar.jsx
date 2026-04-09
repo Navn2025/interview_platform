@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { Moon, Sun, LogOut } from 'lucide-react'
 import LogoMark from '../ui/Logo'
 
-export default function DashboardNavbar({ userName, darkMode, onToggleDark, activeTab, onTabChange }) {
+export default function DashboardNavbar({ userName, darkMode, onToggleDark, activeTab, onTabChange, onLogout }) {
   const navigate = useNavigate()
   const tabs = ['Overview', 'My Interviews', 'Analytics', 'Profile']
 
   const handleLogout = () => {
+    if (onLogout) onLogout()
     navigate('/')
   }
 
