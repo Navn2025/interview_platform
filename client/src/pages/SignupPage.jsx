@@ -1,9 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff } from 'lucide-react'
 import LogoMark from '../components/ui/Logo'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
+import { useAuth } from '../context/AuthContext'
+import { BASE_URL } from '../services/api'
 
 /* Google "G" SVG icon */
 function GoogleIcon() {
@@ -17,8 +19,15 @@ function GoogleIcon() {
   )
 }
 
-export default function SignupPage({ onLogin }) {
+export default function SignupPage() {
   const navigate = useNavigate()
+  const { register, isAuthenticated } = useAuth()
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
   const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [errors, setErrors] = useState({})
   const [showPassword, setShowPassword] = useState(false)
@@ -30,20 +39,22 @@ export default function SignupPage({ onLogin }) {
     if (!form.email) errs.email = 'Email is required'
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = 'Enter a valid email'
     if (!form.password) errs.password = 'Password is required'
-    else if (form.password.length < 6) errs.password = 'Password must be at least 6 characters'
+    else if (form.password.length < 8) errs.password = 'Password must be at least 8 characters'
     return errs
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      if (onLogin) onLogin({ name: form.name, email: form.email })
-      navigate('/dashboard')
-    }, 1000)
+    const result = await register(form.email, form.password)
+    setLoading(false)
+    if (result.success) {
+      navigate('/')
+    } else {
+      setErrors({ email: result.error || 'Registration failed' })
+    }
   }
 
   const handleChange = (field) => (e) => {
@@ -52,8 +63,7 @@ export default function SignupPage({ onLogin }) {
   }
 
   const handleGoogleAuth = () => {
-    if (onLogin) onLogin({ name: 'Google User', email: 'user@gmail.com' })
-    navigate('/dashboard')
+    window.location.href = `${BASE_URL}/auth/google`
   }
 
   return (
@@ -81,8 +91,8 @@ export default function SignupPage({ onLogin }) {
             onClick={handleGoogleAuth}
             type="button"
             className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl border border-gray-200
-                       bg-white hover:bg-gray-50 text-gray-700 font-medium text-sm transition-all duration-150
-                       shadow-sm hover:shadow-md mb-5"
+                       bg-white text-gray-700 hover:bg-gray-50 transition-all duration-150 font-medium text-sm
+                       shadow-sm mb-5"
           >
             <GoogleIcon />
             Continue with Google
@@ -130,7 +140,7 @@ export default function SignupPage({ onLogin }) {
 
           <p className="text-center text-sm text-gray-500 mt-6">
             Have an account?{' '}
-            <button id="switch-to-login" onClick={() => navigate('/login')} className="text-blue-600 font-medium hover:underline">
+            <button id="switch-to-login" onClick={() => navigate('/')} className="text-blue-600 font-medium hover:underline">
               Login
             </button>
           </p>

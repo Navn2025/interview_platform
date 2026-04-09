@@ -15,17 +15,36 @@ export default function ConfigurePage({ onConfigured }) {
   const navigate = useNavigate()
   const [config, setConfig] = useState({
     subject: SUBJECTS[0],
+    customSubject: '',
+    subjectDescription: '',
     bloomMode: 'Single',
     bloomLevel: 'L3 - Apply',
     difficulty: 'Medium',
     numQuestions: 5,
   })
+  const [error, setError] = useState('')
 
   const set = (field, val) => setConfig((p) => ({ ...p, [field]: val }))
 
   const handleStart = () => {
-    if (onConfigured) onConfigured(config)
-    navigate('/interview', { state: { config } })
+    let finalSubject = config.subject;
+    if (config.subject === 'Other / Custom Subject') {
+      finalSubject = config.customSubject.trim();
+      if (!finalSubject) {
+        setError('Please enter a custom subject.');
+        return;
+      }
+    }
+    setError('');
+
+    const startConfig = {
+      ...config,
+      subject: finalSubject,
+      subject_description: config.subjectDescription?.trim() || null
+    };
+
+    if (onConfigured) onConfigured(startConfig)
+    navigate('/interview', { state: { config: startConfig } })
   }
 
   const difficultyColor = { Easy: 'text-green-600', Medium: 'text-amber-600', Hard: 'text-red-600' }
@@ -75,20 +94,62 @@ export default function ConfigurePage({ onConfigured }) {
                 </div>
                 <h2 className="font-semibold text-gray-900 dark:text-white">Subject</h2>
               </div>
-              <div className="relative">
-                <select
-                  id="config-subject"
-                  value={config.subject}
-                  onChange={(e) => set('subject', e.target.value)}
-                  className="w-full appearance-none px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700
-                             bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 text-sm
-                             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                >
-                  {SUBJECTS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <div className="space-y-4">
+                <div className="relative">
+                  <select
+                    id="config-subject"
+                    value={config.subject}
+                    onChange={(e) => {
+                      set('subject', e.target.value);
+                      setError('');
+                    }}
+                    className="w-full appearance-none px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700
+                               bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  >
+                    {SUBJECTS.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                </div>
+
+                {config.subject === 'Other / Custom Subject' && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-2 block">
+                      Custom Subject <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="custom_subject"
+                      value={config.customSubject}
+                      onChange={(e) => {
+                        set('customSubject', e.target.value);
+                        if (error) setError('');
+                      }}
+                      placeholder="e.g. Kotlin Coroutines"
+                      className={`w-full px-4 py-3 rounded-xl border ${
+                        error ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-200 dark:border-slate-700'
+                      } bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 text-sm
+                                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors`}
+                    />
+                    {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-2 block">
+                    Subject Description (optional)
+                  </label>
+                  <textarea
+                    value={config.subjectDescription}
+                    onChange={(e) => set('subjectDescription', e.target.value)}
+                    placeholder="Provide additional context to help AI generate better questions..."
+                    className="w-full min-h-[80px] px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700
+                               bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 text-sm
+                               focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-y"
+                  />
+                </div>
               </div>
             </Card>
 
@@ -234,7 +295,10 @@ export default function ConfigurePage({ onConfigured }) {
 
                 <div className="space-y-3">
                   {[
-                    { label: 'Subject', value: config.subject.length > 35 ? config.subject.substring(0, 35) + '...' : config.subject },
+                    { label: 'Subject', value: (() => {
+                        const s = config.subject === 'Other / Custom Subject' ? (config.customSubject || 'Custom Subject') : config.subject;
+                        return s.length > 35 ? s.substring(0, 35) + '...' : s;
+                      })() },
                     { label: 'Bloom Mode', value: config.bloomMode },
                     { label: 'Bloom Level', value: config.bloomMode === 'Mixed' ? 'All Levels' : config.bloomLevel },
                     { label: 'Difficulty', value: config.difficulty, valueClass: difficultyColor[config.difficulty] + ' font-semibold' },

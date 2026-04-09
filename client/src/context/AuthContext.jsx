@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 
 const AuthContext = createContext();
@@ -71,18 +71,46 @@ export function AuthProvider({ children }) {
     setIsAuthenticated(false);
   };
 
+  const loginWithGoogleToken = useCallback((new_token, email) => {
+    try {
+      localStorage.setItem('interview_jwt', new_token);
+      let user_email = email || '';
+      if (!email) {
+        try {
+          const payload = JSON.parse(atob(new_token.split('.')[1]));
+          user_email = payload.email || payload.sub;
+        } catch (e) {}
+      }
+      if (user_email) {
+        localStorage.setItem('interview_email', user_email);
+        setUser({ email: user_email });
+      } else {
+        setUser({ email: 'google-user@example.com' });
+      }
+      setToken(new_token);
+      setIsAuthenticated(true);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }, []);
+
   const value = {
     token,
     user,
     isAuthenticated,
     login,
     register,
-    logout
+    logout,
+    loginWithGoogleToken
   };
 
   if (isInitializing) {
-    // Optionally return a tiny loader
-    return null; 
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950">
+        <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-600 rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
   return (

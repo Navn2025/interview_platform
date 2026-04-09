@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../services/api'
 import {
   Video, TrendingUp, Award, Target, Play, Plus,
   BarChart2, User, Mail, Camera, Sparkles,
@@ -26,12 +27,18 @@ function StatCard({ icon, value, label, iconBg }) {
 }
 
 /* ────────────────── Overview Tab ────────────────── */
-function OverviewTab({ navigate }) {
+function OverviewTab({ navigate, interviews }) {
+  const completed = interviews.filter(i => i.status === 'completed')
+  const avgScore = completed.length
+    ? Math.round(completed.reduce((s, i) => s + (i.overall_score || 0), 0) / completed.length)
+    : 0
+  const uniqueSubjects = new Set(interviews.map(i => i.subject)).size
+
   const stats = [
-    { icon: <Video className="w-5 h-5 text-blue-600" />, value: '0', label: 'Interviews Completed', iconBg: 'bg-blue-50 dark:bg-blue-900/30' },
-    { icon: <TrendingUp className="w-5 h-5 text-green-600" />, value: '0%', label: 'Average Score', iconBg: 'bg-green-50 dark:bg-green-900/30' },
-    { icon: <Award className="w-5 h-5 text-violet-600" />, value: '0', label: 'Skills Identified', iconBg: 'bg-violet-50 dark:bg-violet-900/30' },
-    { icon: <Target className="w-5 h-5 text-orange-600" />, value: '0', label: 'Improvement Areas', iconBg: 'bg-orange-50 dark:bg-orange-900/30' },
+    { icon: <Video className="w-5 h-5 text-blue-600" />, value: String(completed.length), label: 'Interviews Completed', iconBg: 'bg-blue-50 dark:bg-blue-900/30' },
+    { icon: <TrendingUp className="w-5 h-5 text-green-600" />, value: `${avgScore}%`, label: 'Average Score', iconBg: 'bg-green-50 dark:bg-green-900/30' },
+    { icon: <Award className="w-5 h-5 text-violet-600" />, value: String(uniqueSubjects), label: 'Subjects Covered', iconBg: 'bg-violet-50 dark:bg-violet-900/30' },
+    { icon: <Target className="w-5 h-5 text-orange-600" />, value: String(interviews.length), label: 'Total Interviews', iconBg: 'bg-orange-50 dark:bg-orange-900/30' },
   ]
 
   return (
@@ -86,7 +93,7 @@ function OverviewTab({ navigate }) {
 }
 
 /* ────────────────── My Interviews Tab ────────────────── */
-function MyInterviewsTab({ navigate }) {
+function MyInterviewsTab({ navigate, interviews }) {
   return (
     <div className="animate-fade-in">
       <div className="flex items-center justify-between mb-8">
@@ -103,27 +110,60 @@ function MyInterviewsTab({ navigate }) {
           New Interview
         </Button>
       </div>
-      <Card>
-        <div className="flex flex-col items-center justify-center py-20 text-center gap-5">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
-            <Video className="w-9 h-9 text-gray-400 dark:text-slate-500" />
+      {interviews.length === 0 ? (
+        <Card>
+          <div className="flex flex-col items-center justify-center py-20 text-center gap-5">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
+              <Video className="w-9 h-9 text-gray-400 dark:text-slate-500" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-1.5">No interviews yet</h3>
+              <p className="text-sm text-gray-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                Start your first mock interview to get personalized AI feedback and track your progress
+              </p>
+            </div>
+            <Button
+              id="start-first-interview-btn"
+              onClick={() => navigate('/configure')}
+              variant="gradient"
+              icon={<Plus className="w-4 h-4" />}
+            >
+              Start First Interview
+            </Button>
           </div>
-          <div>
-            <h3 className="font-bold text-lg text-gray-800 dark:text-white mb-1.5">No interviews yet</h3>
-            <p className="text-sm text-gray-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-              Start your first mock interview to get personalized AI feedback and track your progress
-            </p>
-          </div>
-          <Button
-            id="start-first-interview-btn"
-            onClick={() => navigate('/configure')}
-            variant="gradient"
-            icon={<Plus className="w-4 h-4" />}
-          >
-            Start First Interview
-          </Button>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {interviews.map((iv) => (
+            <Card key={iv.id} hover className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shadow">
+                  {(iv.subject || '?')[0].toUpperCase()}
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm">{iv.subject}</h4>
+                  <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                    {new Date(iv.created_at).toLocaleDateString()} · {iv.total_questions} questions · {iv.difficulty || 'medium'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className={`text-sm font-semibold px-3 py-1 rounded-full ${
+                  iv.status === 'completed'
+                    ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                    : iv.status === 'expired'
+                    ? 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                    : 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                }`}>
+                  {iv.status === 'completed'
+                    ? `${iv.overall_score != null ? Math.round(iv.overall_score) + '%' : 'Done'}`
+                    : iv.status}
+                </span>
+              </div>
+            </Card>
+          ))}
         </div>
-      </Card>
+      )}
     </div>
   )
 }
@@ -203,28 +243,34 @@ function ProfileTab({ user }) {
 }
 
 /* ────────────────── Dashboard Page ────────────────── */
-export default function DashboardPage({ user, darkMode, onToggleDark }) {
+export default function DashboardPage({ user, darkMode, onToggleDark, onLogout }) {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('Overview')
+  const [interviews, setInterviews] = useState([])
+
+  useEffect(() => {
+    api.getHistory().then(setInterviews)
+  }, [])
 
   const renderTab = () => {
     switch (activeTab) {
-      case 'Overview': return <OverviewTab navigate={navigate} />
-      case 'My Interviews': return <MyInterviewsTab navigate={navigate} />
+      case 'Overview': return <OverviewTab navigate={navigate} interviews={interviews} />
+      case 'My Interviews': return <MyInterviewsTab navigate={navigate} interviews={interviews} />
       case 'Analytics': return <AnalyticsTab />
       case 'Profile': return <ProfileTab user={user} />
-      default: return <OverviewTab navigate={navigate} />
+      default: return <OverviewTab navigate={navigate} interviews={interviews} />
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50/50 dark:bg-slate-950">
       <DashboardNavbar
-        userName={user?.name}
+        userName={user?.name || user?.email}
         darkMode={darkMode}
         onToggleDark={onToggleDark}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        onLogout={onLogout}
       />
       <main className="max-w-7xl mx-auto px-6 py-10">
         {renderTab()}
